@@ -1,0 +1,24 @@
+{
+  "name": "@pppicado/redim-frame",
+  "version": "0.1.0",
+  "description": "Floating, resizable, and draggable windows for Angular",
+  "author": "Pedro Pablo Picado Sánchez",
+  "license": "MIT",
+  "peerDependencies": {
+    "@angular/common": "^16.2.0",
+    "@angular/core": "^16.2.0",
+    "@angular/cdk": "^16.2.0",
+    "@pppicado/virtual-scrollbar": "^0.1.0"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
+  "keywords": [
+    "angular",
+    "floating-window",
+    "draggable",
+    "resizable",
+    "window-manager"
+  ],
+  "sideEffects": false
+}

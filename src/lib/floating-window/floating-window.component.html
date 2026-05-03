@@ -1,0 +1,21 @@
+<div class="window-container card shadow" cdkDrag [cdkDragFreeDragPosition]="xyDragPositionPixels"
+  (cdkDragStarted)="onDragStart($event)" (cdkDragEnded)="onDragEnd($event)" (mousedown)="onWindowClick()"
+  [style.width.vw]="width" [style.height.vh]="height" [style.zIndex]="zIndex" [style.--window-width.vw]="width"
+  [style.--window-height.vh]="height">
+
+  <lib-virtual-scrollbar class="card-body p-0 position-relative" [scrollIcon]="scrollIcon"
+    [scrollThumbSize]="scrollThumbSize">
+    <ng-template [cdkPortalOutlet]="contentPortal" (attached)="onPortalAttached($event)"></ng-template>
+    <ng-content></ng-content>
+  </lib-virtual-scrollbar>
+
+  <!-- Resize Handles -->
+  <div class="resize-handle resize-handle-e" (mousedown)="initResize($event, 'e')"></div>
+  <div class="resize-handle resize-handle-s" (mousedown)="initResize($event, 's')"></div>
+  <div class="resize-handle resize-handle-w" (mousedown)="initResize($event, 'w')"></div>
+  <div class="resize-handle resize-handle-n" cdkDragHandle></div>
+  <div class="resize-handle resize-handle-se" (mousedown)="initResize($event, 'se')"></div>
+  <div class="resize-handle resize-handle-nw" (mousedown)="initResize($event, 'nw')"></div>
+  <div class="resize-handle resize-handle-ne" (mousedown)="initResize($event, 'ne')"></div>
+  <div class="resize-handle resize-handle-sw" (mousedown)="initResize($event, 'sw')"></div>
+</div>

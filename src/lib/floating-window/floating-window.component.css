@@ -1,0 +1,114 @@
+:host {
+    position: absolute;
+    display: block;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none !important;
+}
+
+.window-container {
+    position: relative;
+    user-select: none;
+    pointer-events: auto;
+}
+
+.resize-handle {
+    position: absolute;
+    z-index: 100;
+    pointer-events: auto;
+}
+
+/* content scrollbar styling */
+.card-body {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.card-body::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.card-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.card-body::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+
+.card-body:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.4);
+}
+
+/* Resize handles positioned INSIDE the container (Reverted negative margins) */
+.resize-handle-e {
+    right: 0;
+    top: 0;
+    bottom: var(--resizeBorder);
+    width: var(--resizeBorder);
+    cursor: e-resize;
+}
+
+.resize-handle-s {
+    bottom: 0;
+    left: 0;
+    right: var(--resizeBorder);
+    height: var(--resizeBorder);
+    cursor: s-resize;
+}
+
+.resize-handle-se {
+    bottom: 0;
+    right: 0;
+    width: var(--resizeBorder);
+    height: var(--resizeBorder);
+    cursor: se-resize;
+}
+
+.resize-handle-w {
+    top: var(--resizeBorder);
+    bottom: var(--resizeBorder);
+    left: 0;
+    width: var(--resizeBorder);
+    cursor: w-resize;
+}
+
+.resize-handle-n {
+    top: 0;
+    left: var(--resizeBorder);
+    right: var(--resizeBorder);
+    height: var(--resizeBorder);
+    cursor: move;
+}
+
+.resize-handle-n:active {
+    cursor: grabbing;
+}
+
+.resize-handle-ne {
+    top: 0;
+    right: 0;
+    width: var(--resizeBorder);
+    height: var(--resizeBorder);
+    cursor: ne-resize;
+}
+
+.resize-handle-nw {
+    top: 0;
+    left: 0;
+    width: var(--resizeBorder);
+    height: var(--resizeBorder);
+    cursor: nw-resize;
+}
+
+.resize-handle-sw {
+    bottom: 0;
+    left: 0;
+    width: var(--resizeBorder);
+    height: var(--resizeBorder);
+    cursor: sw-resize;
+}
