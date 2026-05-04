@@ -77,7 +77,10 @@
     cursor: w-resize;
 }
 
-.resize-handle-n {
+.drag-handle-n {
+    position: absolute;
+    z-index: 100;
+    pointer-events: auto;
     top: 0;
     left: var(--resizeBorder);
     right: var(--resizeBorder);
@@ -85,7 +88,7 @@
     cursor: move;
 }
 
-.resize-handle-n:active {
+.drag-handle-n:active {
     cursor: grabbing;
 }
 
