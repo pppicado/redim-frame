@@ -1,6 +1,7 @@
 import { Injectable, ComponentRef, Injector, TemplateRef, Type, InjectionToken } from '@angular/core';
 import { Overlay, OverlayConfig, OverlayRef } from '@angular/cdk/overlay';
 import { ComponentPortal, TemplatePortal, Portal } from '@angular/cdk/portal';
+import { Subscription } from 'rxjs';
 import { FloatingWindowComponent } from './floating-window/floating-window.component';
 import { ModalWindowComponent } from './modal-window/modal-window.component';
 import { StartWindowConfig } from './redim-frame.interface';
@@ -13,8 +14,84 @@ export const WINDOW_DATA = new InjectionToken<any>('WINDOW_DATA');
 })
 export class RedimFrameService {
   private zIndexCounter = 1000;
+  private zIndexPool: number[] = [];
+  private windowRegistry = new WeakMap<ComponentRef<any>, { overlayRef: OverlayRef, subs: Subscription[] }>();
+  private childOverlays = new Map<Element, OverlayRef[]>();
 
   constructor(private overlay: Overlay, private injector: Injector) { }
+
+  private acquireZIndex(preferred?: number): number {
+    if (preferred != null) return preferred;
+    return this.zIndexPool.pop() ?? this.zIndexCounter++;
+  }
+
+  private releaseZIndex(z: number): void {
+    this.zIndexPool.push(z);
+    this.zIndexPool.sort((a, b) => b - a);
+  }
+
+  private setupWindow(
+    windowInstance: BaseWindowDirective,
+    config: StartWindowConfig,
+    overlayRef: OverlayRef
+  ): Subscription[] {
+    windowInstance.width = config.width ?? 30;
+    windowInstance.height = config.height ?? 30;
+    windowInstance.x = config.x ?? 10;
+    windowInstance.y = config.y ?? 10;
+    windowInstance.zIndex = this.acquireZIndex(config.zIndex);
+    windowInstance.windowData = config.data;
+    windowInstance.scrollIcon = config.scrollIcon ?? '';
+    windowInstance.minHeight = config.minHeight ?? 10;
+    windowInstance.minWidth = config.minWidth ?? 10;
+    windowInstance.resizeBorder = config.resizeBorder ?? 0.5;
+    windowInstance.scrollThumbSize = config.scrollThumbSize ?? 2;
+
+    if (config.origin) {
+      windowInstance.originElement = config.origin;
+      this.reparentOverlayInto(overlayRef, config.origin);
+    }
+
+    const subs = this.setupSubscriptions(windowInstance, overlayRef);
+
+    if (overlayRef.hostElement) {
+      overlayRef.hostElement.style.zIndex = `${windowInstance.zIndex}`;
+      overlayRef.hostElement.style.pointerEvents = 'none';
+    }
+
+    if (overlayRef.overlayElement) {
+      overlayRef.overlayElement.style.pointerEvents = 'none';
+    }
+
+    return subs;
+  }
+
+  private setupSubscriptions(windowInstance: BaseWindowDirective, overlayRef: OverlayRef): Subscription[] {
+    const subs: Subscription[] = [
+      windowInstance.change.subscribe((event) => {
+        if (event.type === 'close') {
+          this.releaseZIndex(windowInstance.zIndex);
+          subs.forEach(s => s.unsubscribe());
+          const originEl = windowInstance.originElement;
+          if (originEl && this.childOverlays.has(originEl)) {
+            this.childOverlays.get(originEl)!.forEach(c => c.dispose());
+            this.childOverlays.delete(originEl);
+          }
+          overlayRef.dispose();
+        }
+      }),
+      windowInstance.change.subscribe((event) => {
+        if (event.type === 'focus') {
+          this.zIndexCounter++;
+          windowInstance.zIndex = this.zIndexCounter;
+          if (overlayRef.hostElement) {
+            overlayRef.hostElement.style.zIndex = `${this.zIndexCounter}`;
+          }
+        }
+      })
+    ];
+    return subs;
+  }
 
   openWindows<T>(componentOrTemplate: Type<T> | TemplateRef<T>, config: StartWindowConfig = {}): ComponentRef<FloatingWindowComponent> {
 
@@ -35,24 +112,7 @@ export class RedimFrameService {
     const windowRef = overlayRef.attach(windowPortal);
     const windowInstance = windowRef.instance;
 
-    windowInstance.width = config.width || 30;
-    windowInstance.height = config.height || 30;
-    windowInstance.x = config.x || 10;
-    windowInstance.y = config.y || 10;
-    windowInstance.zIndex = this.zIndexCounter++;
-    windowInstance.windowData = config.data;
-    windowInstance.scrollIcon = config.scrollIcon || '';
-    windowInstance.minHeight = config.minHeight || 10;
-    windowInstance.minWidth = config.minWidth || 10;
-    windowInstance.resizeBorder = config.resizeBorder || 0.5;
-    windowInstance.scrollThumbSize = config.scrollThumbSize || 2;
-    windowInstance.zIndex = config.zIndex || this.zIndexCounter++;
-
-    // If origin is provided, reparent overlay into origin and pass originElement
-    if (config.origin) {
-      windowInstance.originElement = config.origin;
-      this.reparentOverlayInto(overlayRef, config.origin);
-    }
+    const subs = this.setupWindow(windowInstance, config, overlayRef);
 
     // Create Injector for user component data
     const injector = Injector.create({
@@ -75,35 +135,8 @@ export class RedimFrameService {
 
     windowInstance.contentPortal = userPortal;
 
-    // Handle Close
-    windowInstance.change.subscribe((event) => {
-      if (event.close) {
-        overlayRef.dispose();
-      }
-    });
-
-    // Handle Focus (Z-Index)
-    windowInstance.change.subscribe((event) => {
-      if (event.focus) {
-        this.zIndexCounter++;
-        windowInstance.zIndex = this.zIndexCounter;
-        if (overlayRef.hostElement) {
-          overlayRef.hostElement.style.zIndex = `${this.zIndexCounter}`;
-        }
-      }
-    });
-
-    // Initial Z-Index
-    if (overlayRef.hostElement) {
-      overlayRef.hostElement.style.zIndex = `${windowInstance.zIndex}`;
-      // Allow pointer events to pass through overlay container
-      overlayRef.hostElement.style.pointerEvents = 'none';
-    }
-
-    // Enable pointer events on the overlay pane (the window itself)
-    if (overlayRef.overlayElement) {
-      overlayRef.overlayElement.style.pointerEvents = 'none'; // Set to none so clicks pass through pane
-    }
+    // Register window for programmatic close
+    this.windowRegistry.set(windowRef, { overlayRef, subs });
 
     return windowRef;
   }
@@ -119,33 +152,19 @@ export class RedimFrameService {
 
     const overlayConfig = new OverlayConfig({
       positionStrategy,
-      hasBackdrop: false,
+      hasBackdrop: config.hasBackdrop ?? true,
       scrollStrategy: this.overlay.scrollStrategies.block()
     });
 
     const overlayRef = this.overlay.create(overlayConfig);
     const windowPortal = new ComponentPortal(ModalWindowComponent);
-    config.origin.
     const windowRef = overlayRef.attach(windowPortal);
     const windowInstance = windowRef.instance;
 
-    windowInstance.width = config.width || 30;
-    windowInstance.height = config.height || 30;
-    windowInstance.x = config.x || 10;
-    windowInstance.y = config.y || 10;
-    windowInstance.zIndex = config.zIndex || this.zIndexCounter++;
-    windowInstance.windowData = config.data;
-    windowInstance.scrollIcon = config.scrollIcon || '';
-    windowInstance.minHeight = config.minHeight || 10;
-    windowInstance.minWidth = config.minWidth || 10;
-    windowInstance.resizeBorder = config.resizeBorder || 0;
-    windowInstance.scrollThumbSize = config.scrollThumbSize || 2;
+    // Override resizeBorder for modal (default 0 instead of 0.5)
+    config.resizeBorder = config.resizeBorder ?? 0;
 
-    // If origin is provided, reparent overlay into origin and pass originElement
-    if (config.origin) {
-      windowInstance.originElement = config.origin;
-      this.reparentOverlayInto(overlayRef, config.origin);
-    }
+    const subs = this.setupWindow(windowInstance, config, overlayRef);
 
     // Create Injector for user component data
     const injector = Injector.create({
@@ -169,28 +188,8 @@ export class RedimFrameService {
 
     windowInstance.contentPortal = userPortal;
 
-    // Handle Close
-    windowInstance.change.subscribe((event) => {
-      if (event.close) {
-        overlayRef.dispose();
-      }
-    });
-
-    // Handle Focus (Z-Index)
-    windowInstance.change.subscribe((event) => {
-      if (event.focus) {
-        this.zIndexCounter++;
-        windowInstance.zIndex = this.zIndexCounter;
-        if (overlayRef.hostElement) {
-          overlayRef.hostElement.style.zIndex = `${this.zIndexCounter}`;
-        }
-      }
-    });
-
-    // Initial Z-Index
-    if (overlayRef.hostElement) {
-      overlayRef.hostElement.style.zIndex = `${windowInstance.zIndex}`;
-    }
+    // Register window for programmatic close
+    this.windowRegistry.set(windowRef, { overlayRef, subs });
 
     return windowRef;
   }
@@ -200,18 +199,20 @@ export class RedimFrameService {
    * This makes the overlay render inside the origin instead of the global overlay container.
    */
   private reparentOverlayInto(overlayRef: OverlayRef, origin: HTMLElement): void {
-    // Warn if origin is not a positioning context (required for absolute children)
-    const computedStyle = getComputedStyle(origin);
-    if (computedStyle.position === 'static') {
-      console.warn('[RedimFrame] El elemento origin tiene position: static. Se recomienda establecer position: relative para que las ventanas se posicionen correctamente dentro de él.');
-    }
-    if (computedStyle.overflow === 'visible') {
-      console.warn('[RedimFrame] El elemento origin tiene overflow: visible. Se recomienda establecer overflow: hidden para contener visualmente las ventanas.');
-    }
-
     // Move the overlay host inside the origin
     const hostElement = overlayRef.hostElement;
     origin.appendChild(hostElement);
+
+    // Track child overlay under the PARENT's hostElement.
+    // The parent's hostElement contains a .window-container child — that's the
+    // reparented overlay we just appended into.
+    const parentHost = hostElement.closest('.window-container')?.closest('.cdk-overlay-container')
+      ?? origin;
+
+    // Track this child overlay under the origin (which IS the parent's overlay pane)
+    const existing = this.childOverlays.get(origin) || [];
+    existing.push(overlayRef);
+    this.childOverlays.set(origin, existing);
 
     // Make overlay host fill the origin
     hostElement.style.position = 'absolute';
@@ -227,5 +228,26 @@ export class RedimFrameService {
     overlayPane.style.left = '0';
     overlayPane.style.width = '100%';
     overlayPane.style.height = '100%';
+  }
+
+  /**
+   * Closes a window programmatically and cleans up all its resources.
+   */
+  closeWindow(componentRef: ComponentRef<any>): void {
+    const entry = this.windowRegistry.get(componentRef);
+    if (entry) {
+      // Close child overlays reparented into this window's host element.
+      // Child overlays are stored under the origin element passed to reparentOverlayInto.
+      const originEl = componentRef.instance.originElement as HTMLElement | null;
+      if (originEl && this.childOverlays.has(originEl)) {
+        const children = this.childOverlays.get(originEl)!;
+        children.forEach(childRef => childRef.dispose());
+        this.childOverlays.delete(originEl);
+      }
+
+      // Clean up subscriptions and dispose overlay
+      entry.subs.forEach(s => s.unsubscribe());
+      entry.overlayRef.dispose();
+    }
   }
 }

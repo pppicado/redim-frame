@@ -10,7 +10,7 @@ import { BaseWindowDirective } from '../base-window.directive';
 })
 export class FloatingWindowComponent extends BaseWindowDirective implements OnInit, AfterViewInit, OnDestroy {
 
-  @HostBinding('style.--resizeBorder') resizeBorderStyle: string = this.resizeBorder + 'vw';
+  @HostBinding('style.--resizeBorder') get resizeBorderStyle() { return this.resizeBorder + 'vw'; }
 
   @HostBinding('style.--width') get widthStyle() { return this.width + 'vw'; }
   @HostBinding('style.--height') get heightStyle() { return this.height + 'vh'; }
@@ -78,7 +78,7 @@ export class FloatingWindowComponent extends BaseWindowDirective implements OnIn
   // onPortalAttached handled by BaseWindowDirective
 
   onDragStart(event: CdkDragStart) {
-    this.change.emit({ focus: true });
+    this.change.emit({ type: 'focus' });
   }
 
   onDragEnd(event: CdkDragEnd) {
@@ -97,6 +97,7 @@ export class FloatingWindowComponent extends BaseWindowDirective implements OnIn
       this.y = ((rect.top + scrollY) / ref.height) * 100;
     }
     this.updateDragPosition();
+    this.change.emit({ type: 'drag', x: this.x, y: this.y });
   }
 
   // onWindowClick and closeWindow handled by BaseWindowDirective
@@ -115,7 +116,7 @@ export class FloatingWindowComponent extends BaseWindowDirective implements OnIn
     this.startXWindow = this.x;
     this.startYWindow = this.y;
 
-    this.change.emit({ focus: true });
+    this.change.emit({ type: 'focus' });
 
     this.mouseMoveListener = this.renderer.listen('document', 'mousemove', (e) => this.onResize(e));
     this.mouseUpListener = this.renderer.listen('document', 'mouseup', () => this.stopResize());
@@ -132,10 +133,10 @@ export class FloatingWindowComponent extends BaseWindowDirective implements OnIn
     for (const direction of this.resizeDirection) {
       switch (direction) {
         case 'e':
-          this.width = Math.max(10, this.startWidth + dxPercent);
+          this.width = Math.max(this.minWidth, this.startWidth + dxPercent);
           break;
         case 'w':
-          this.width = Math.max(10, this.startWidth - dxPercent);
+          this.width = Math.max(this.minWidth, this.startWidth - dxPercent);
           this.x = this.startXWindow + (this.startWidth - this.width);
           break;
         case 's':
@@ -148,7 +149,7 @@ export class FloatingWindowComponent extends BaseWindowDirective implements OnIn
       }
     }
     this.updateDragPosition();
-    this.change.emit({ width: this.width, height: this.height });
+    this.change.emit({ type: 'resize', width: this.width, height: this.height, x: this.x, y: this.y });
   }
 
   stopResize() {

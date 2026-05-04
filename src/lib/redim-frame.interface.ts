@@ -11,4 +11,12 @@ export interface StartWindowConfig {
     scrollThumbSize?: number;
     zIndex?: number;
     origin?: HTMLElement;
+    hasBackdrop?: boolean;
+    debug?: boolean;
 }
+
+export type WindowChangeEvent =
+    | { type: 'close' }
+    | { type: 'focus' }
+    | { type: 'resize'; width: number; height: number; x: number; y: number }
+    | { type: 'drag'; x: number; y: number };

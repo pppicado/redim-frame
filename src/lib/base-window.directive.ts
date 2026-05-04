@@ -1,6 +1,6 @@
 import { Directive, EventEmitter, Input, Output, OnDestroy, ComponentRef } from '@angular/core';
 import { Portal, CdkPortalOutletAttachedRef } from '@angular/cdk/portal';
-import { reflectComponentType } from '@angular/core';
+import { WindowChangeEvent } from './redim-frame.interface';
 @Directive({
   selector: '[libBaseWindow]'
 })
@@ -21,38 +21,41 @@ export class BaseWindowDirective implements OnDestroy {
   @Input() scrollThumbSize: number = 2; // Default 2vw
   @Input() originElement: HTMLElement | null = null;
 
-  @Output() change = new EventEmitter<{
-    width?: number,
-    height?: number,
-    x?: number,
-    y?: number,
-    focus?: boolean,
-    close?: boolean,
-    zIndex?: number
-  }>();
+  @Output() change = new EventEmitter<WindowChangeEvent>();
+
+  private _disposed: boolean = false;
 
   ngOnDestroy() {
     // Override if needed in subclasses
   }
 
+  getDimensions(): { width: number; height: number; x: number; y: number } {
+    return { width: this.width, height: this.height, x: this.x, y: this.y };
+  }
+
+  dispose(): void {
+    if (this._disposed) return;
+    this._disposed = true;
+    this.change.emit({ type: 'close' });
+  }
+
   onPortalAttached(ref: CdkPortalOutletAttachedRef) {
     if (ref instanceof ComponentRef && this.windowData) {
-      const mirror = reflectComponentType(ref.componentType);
-      if (mirror) {
-        Object.keys(this.windowData).forEach(key => {
-          if (mirror.inputs.some(input => input.propName === key)) {
-            ref.setInput(key, this.windowData[key]);
-          }
-        });
-      }
+      Object.keys(this.windowData).forEach(key => {
+        try {
+          ref.setInput(key, this.windowData[key]);
+        } catch {
+          // Input doesn't exist on component — skip silently
+        }
+      });
     }
   }
 
   onWindowClick() {
-    this.change.emit({ focus: true });
+    this.change.emit({ type: 'focus' });
   }
 
   closeWindow() {
-    this.change.emit({ close: true });
+    this.change.emit({ type: 'close' });
   }
 }
