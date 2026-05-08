@@ -1,5 +1,6 @@
 /*
  * Public API Surface of redim-frame
+ * Superficie del API público de redim-frame
  */
 
 export * from './lib/redim-frame.interface';

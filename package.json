@@ -1,7 +1,7 @@
 {
   "name": "@pppicado/redim-frame",
   "version": "0.1.0",
-  "description": "Floating, resizable, and draggable windows for Angular",
+    "description": "Floating, resizable, and draggable windows for Angular / Ventanas flotantes, redimensionables y arrastrables para Angular",
   "author": "Pedro Pablo Picado Sánchez",
   "license": "MIT",
   "peerDependencies": {
