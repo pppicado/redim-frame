@@ -197,6 +197,9 @@ export class RedimFrameService {
   /**
    * Reparents the overlay host element into the given origin container.
    * This makes the overlay render inside the origin instead of the global overlay container.
+   * 
+   * ES: Reubica el elemento host del overlay dentro del contenedor de origen dado.
+   * Esto hace que el overlay se renderice dentro del origen en lugar del contenedor global de overlay.
    */
   private reparentOverlayInto(overlayRef: OverlayRef, origin: HTMLElement): void {
     // Move the overlay host inside the origin
@@ -232,6 +235,8 @@ export class RedimFrameService {
 
   /**
    * Closes a window programmatically and cleans up all its resources.
+   * 
+   * ES: Cierra una ventana programáticamente y limpia todos sus recursos.
    */
   closeWindow(componentRef: ComponentRef<any>): void {
     const entry = this.windowRegistry.get(componentRef);
