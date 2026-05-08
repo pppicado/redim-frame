@@ -6,10 +6,27 @@
     width: 0;
     height: 0;
     pointer-events: none !important;
+
+    /* CSS cascade variables */
+    --rf_window_width_local: calc(var(--rf_window_width_inherited, var(--rf_viewport_x_px, 100vw)) * var(--rf_window_width, 1));
+    --rf_window_height_local: calc(var(--rf_window_height_inherited, var(--rf_viewport_y_px, 100vh)) * var(--rf_window_height, 1));
+    --rf_window_top_local: calc(var(--rf_window_top, 0) * var(--rf_window_height_local));
+    --rf_window_top_total: calc(var(--rf_window_top_inherited, 0px) + var(--rf_window_top_local));
+    --rf_window_left_local: calc(var(--rf_window_left, 0) * var(--rf_window_width_local));
+    --rf_window_left_total: calc(var(--rf_window_left_inherited, 0px) + var(--rf_window_left_local));
+}
+
+.var-to-inherited {
+    --rf_window_width_inherited: var(--rf_window_width_local);
+    --rf_window_height_inherited: var(--rf_window_height_local);
+    --rf_window_top_inherited: var(--rf_window_top_total);
+    --rf_window_left_inherited: var(--rf_window_left_total);
 }
 
 .window-container {
     position: relative;
+    width: var(--rf_window_width_local);
+    height: var(--rf_window_height_local);
     user-select: none;
     pointer-events: auto;
 }
@@ -44,36 +61,36 @@
     background-color: rgba(0, 0, 0, 0.4);
 }
 
-/* Resize handles positioned INSIDE the container (Reverted negative margins) */
+/* Resize handles positioned INSIDE the container */
 .resize-handle-e {
     right: 0;
     top: 0;
-    bottom: var(--resizeBorder);
-    width: var(--resizeBorder);
+    bottom: 0;
+    width: calc(var(--rf_resize_handle, 0.005) * var(--rf_window_width_local));
     cursor: e-resize;
 }
 
 .resize-handle-s {
     bottom: 0;
     left: 0;
-    right: var(--resizeBorder);
-    height: var(--resizeBorder);
+    right: 0;
+    height: calc(var(--rf_resize_handle, 0.005) * var(--rf_window_width_local));
     cursor: s-resize;
 }
 
 .resize-handle-se {
     bottom: 0;
     right: 0;
-    width: var(--resizeBorder);
-    height: var(--resizeBorder);
+    width: calc(var(--rf_resize_handle, 0.005) * var(--rf_window_width_local));
+    height: calc(var(--rf_resize_handle, 0.005) * var(--rf_window_width_local));
     cursor: se-resize;
 }
 
 .resize-handle-w {
-    top: var(--resizeBorder);
-    bottom: var(--resizeBorder);
+    top: 0;
+    bottom: 0;
     left: 0;
-    width: var(--resizeBorder);
+    width: calc(var(--rf_resize_handle, 0.005) * var(--rf_window_width_local));
     cursor: w-resize;
 }
 
@@ -82,9 +99,9 @@
     z-index: 100;
     pointer-events: auto;
     top: 0;
-    left: var(--resizeBorder);
-    right: var(--resizeBorder);
-    height: var(--resizeBorder);
+    left: 0;
+    right: 0;
+    height: calc(var(--rf_resize_handle, 0.005) * var(--rf_window_width_local));
     cursor: move;
 }
 
@@ -95,23 +112,23 @@
 .resize-handle-ne {
     top: 0;
     right: 0;
-    width: var(--resizeBorder);
-    height: var(--resizeBorder);
+    width: calc(var(--rf_resize_handle, 0.005) * var(--rf_window_width_local));
+    height: calc(var(--rf_resize_handle, 0.005) * var(--rf_window_width_local));
     cursor: ne-resize;
 }
 
 .resize-handle-nw {
     top: 0;
     left: 0;
-    width: var(--resizeBorder);
-    height: var(--resizeBorder);
+    width: calc(var(--rf_resize_handle, 0.005) * var(--rf_window_width_local));
+    height: calc(var(--rf_resize_handle, 0.005) * var(--rf_window_width_local));
     cursor: nw-resize;
 }
 
 .resize-handle-sw {
     bottom: 0;
     left: 0;
-    width: var(--resizeBorder);
-    height: var(--resizeBorder);
+    width: calc(var(--rf_resize_handle, 0.005) * var(--rf_window_width_local));
+    height: calc(var(--rf_resize_handle, 0.005) * var(--rf_window_width_local));
     cursor: sw-resize;
 }

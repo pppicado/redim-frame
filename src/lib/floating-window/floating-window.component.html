@@ -1,7 +1,5 @@
-<div class="window-container card shadow" cdkDrag [cdkDragFreeDragPosition]="xyDragPositionPixels"
-  (cdkDragStarted)="onDragStart($event)" (cdkDragEnded)="onDragEnd($event)" (mousedown)="onWindowClick()"
-  [style.width.vw]="width" [style.height.vh]="height" [style.zIndex]="zIndex" [style.--window-width.vw]="width"
-  [style.--window-height.vh]="height">
+<div class="window-container card shadow var-to-inherited" cdkDrag [cdkDragFreeDragPosition]="xyDragPositionPixels"
+  (cdkDragStarted)="onDragStart($event)" (cdkDragEnded)="onDragEnd($event)" (mousedown)="onWindowClick()">
 
   <lib-virtual-scrollbar class="card-body p-0 position-relative" [scrollIcon]="scrollIcon"
     [scrollThumbSize]="scrollThumbSize">

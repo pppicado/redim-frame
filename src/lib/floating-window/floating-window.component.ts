@@ -1,6 +1,6 @@
-import { Component, EventEmitter, HostBinding, Input, Output, Renderer2, OnDestroy, AfterViewInit, OnInit, ComponentRef, ChangeDetectorRef } from '@angular/core';
+import { Component, EventEmitter, Input, Renderer2, OnDestroy, AfterViewInit, OnInit, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { CdkDragEnd, CdkDragStart, CdkDrag } from '@angular/cdk/drag-drop';
-import { Portal, CdkPortalOutletAttachedRef } from '@angular/cdk/portal';
+import { Portal } from '@angular/cdk/portal';
 import { BaseWindowDirective } from '../base-window.directive';
 
 @Component({
@@ -10,18 +10,15 @@ import { BaseWindowDirective } from '../base-window.directive';
 })
 export class FloatingWindowComponent extends BaseWindowDirective implements OnInit, AfterViewInit, OnDestroy {
 
-  @HostBinding('style.--resizeBorder') get resizeBorderStyle() { return this.resizeBorder + 'vw'; }
-
-  @HostBinding('style.--width') get widthStyle() { return this.width + 'vw'; }
-  @HostBinding('style.--height') get heightStyle() { return this.height + 'vh'; }
-  @HostBinding('style.--left') get leftStyle() { return this.x + 'vw'; }
-  @HostBinding('style.--top') get topStyle() { return this.y + 'vh'; }
-  @HostBinding('style.--z-index') get zIndexStyle() { return this.zIndex; }
-
+  @Input() override zIndex: number = 1000;
 
   xyDragPositionPixels = { x: 0, y: 0 };
-  
-  /** Returns the reference width/height for percentage calculations */
+
+  private setCssVar(name: string, value: string) {
+    this.renderer.setStyle(this.elementRef.nativeElement, name, value);
+  }
+
+  /** Returns the reference width/height for fraction→pixel conversions */
   private getReferenceSize(): { width: number; height: number } {
     if (this.originElement) {
       return { width: this.originElement.clientWidth, height: this.originElement.clientHeight };
@@ -29,11 +26,20 @@ export class FloatingWindowComponent extends BaseWindowDirective implements OnIn
     return { width: window.innerWidth, height: window.innerHeight };
   }
 
+  /** Pushes current decimal-fraction state into CSS custom properties on :host */
+  syncPositionToCssVars() {
+    this.setCssVar('--rf_window_width', this.width.toString());
+    this.setCssVar('--rf_window_height', this.height.toString());
+    this.setCssVar('--rf_window_top', this.y.toString());
+    this.setCssVar('--rf_window_left', this.x.toString());
+    this.setCssVar('--rf_resize_handle', this.resizeBorder.toString());
+  }
+
   updateDragPosition() {
     const ref = this.getReferenceSize();
     this.xyDragPositionPixels = {
-      x: (this.x * ref.width) / 100,
-      y: (this.y * ref.height) / 100
+      x: this.x * ref.width,
+      y: this.y * ref.height
     };
   }
 
@@ -48,34 +54,48 @@ export class FloatingWindowComponent extends BaseWindowDirective implements OnIn
 
   private mouseMoveListener: Function | null = null;
   private mouseUpListener: Function | null = null;
-  private windowResizeListener: Function | null = null;
+  private resizeObserver: ResizeObserver | null = null;
 
-  constructor(private renderer: Renderer2, private cdr: ChangeDetectorRef) {
+  constructor(
+    private renderer: Renderer2,
+    private elementRef: ElementRef,
+    private cdr: ChangeDetectorRef
+  ) {
     super();
   }
 
   ngOnInit() {
+    this.syncPositionToCssVars();
     this.updateDragPosition();
-    this.windowResizeListener = this.renderer.listen('window', 'resize', () => this.onWindowResize());
+
+    // Only outermost windows (no originElement) observe viewport and set viewport-origin vars
+    if (!this.originElement) {
+      this.setCssVar('--rf_viewport_x_px', window.innerWidth + 'px');
+      this.setCssVar('--rf_viewport_y_px', window.innerHeight + 'px');
+      this.resizeObserver = new ResizeObserver((entries) => this.onViewportResize(entries));
+      this.resizeObserver.observe(document.documentElement);
+    }
   }
 
   ngAfterViewInit() {
   }
 
+  private onViewportResize(entries?: ResizeObserverEntry[]) {
+    const entry = entries?.[0];
+    if (!this.originElement && entry) {
+      this.setCssVar('--rf_viewport_x_px', entry.contentRect.width + 'px');
+      this.setCssVar('--rf_viewport_y_px', entry.contentRect.height + 'px');
+    }
+  }
+
   override ngOnDestroy() {
     this.removeResizeListeners();
-    if (this.windowResizeListener) {
-      this.windowResizeListener();
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
     }
     super.ngOnDestroy();
   }
-
-  onWindowResize() {
-    this.updateDragPosition();
-    this.cdr.detectChanges();
-  }
-
-  // onPortalAttached handled by BaseWindowDirective
 
   onDragStart(event: CdkDragStart) {
     this.change.emit({ type: 'focus' });
@@ -88,21 +108,24 @@ export class FloatingWindowComponent extends BaseWindowDirective implements OnIn
 
     if (this.originElement) {
       const originRect = this.originElement.getBoundingClientRect();
-      this.x = ((rect.left - originRect.left) / ref.width) * 100;
-      this.y = ((rect.top - originRect.top) / ref.height) * 100;
+      this.x = (rect.left - originRect.left) / ref.width;
+      this.y = (rect.top - originRect.top) / ref.height;
     } else {
       const scrollX = window.scrollX || window.pageXOffset;
       const scrollY = window.scrollY || window.pageYOffset;
-      this.x = ((rect.left + scrollX) / ref.width) * 100;
-      this.y = ((rect.top + scrollY) / ref.height) * 100;
+      this.x = (rect.left + scrollX) / ref.width;
+      this.y = (rect.top + scrollY) / ref.height;
     }
+
+    // Clamp to [0, 1]
+    this.x = Math.min(Math.max(this.x, 0), 1);
+    this.y = Math.min(Math.max(this.y, 0), 1);
+
+    this.syncPositionToCssVars();
     this.updateDragPosition();
     this.change.emit({ type: 'drag', x: this.x, y: this.y });
   }
 
-  // onWindowClick and closeWindow handled by BaseWindowDirective
-
-  // Resizing logic
   initResize(event: MouseEvent, direction: string) {
     event.preventDefault();
     event.stopPropagation();
@@ -127,27 +150,35 @@ export class FloatingWindowComponent extends BaseWindowDirective implements OnIn
     const dxPx = event.clientX - this.startX;
     const dyPx = event.clientY - this.startY;
     const ref = this.getReferenceSize();
-    const dxPercent = (dxPx / ref.width) * 100;
-    const dyPercent = (dyPx / ref.height) * 100;
+    const dxFraction = dxPx / ref.width;
+    const dyFraction = dyPx / ref.height;
 
     for (const direction of this.resizeDirection) {
       switch (direction) {
         case 'e':
-          this.width = Math.max(this.minWidth, this.startWidth + dxPercent);
+          this.width = Math.max(this.minWidth, this.startWidth + dxFraction);
           break;
         case 'w':
-          this.width = Math.max(this.minWidth, this.startWidth - dxPercent);
+          this.width = Math.max(this.minWidth, this.startWidth - dxFraction);
           this.x = this.startXWindow + (this.startWidth - this.width);
           break;
         case 's':
-          this.height = Math.max(this.minHeight, this.startHeight + dyPercent);
+          this.height = Math.max(this.minHeight, this.startHeight + dyFraction);
           break;
         case 'n':
-          this.height = Math.max(this.minHeight, this.startHeight - dyPercent);
+          this.height = Math.max(this.minHeight, this.startHeight - dyFraction);
           this.y = this.startYWindow + (this.startHeight - this.height);
           break;
       }
     }
+
+    // Clamp all to [0, 1]
+    this.x = Math.min(Math.max(this.x, 0), 1);
+    this.y = Math.min(Math.max(this.y, 0), 1);
+    this.width = Math.min(Math.max(this.width, 0), 1);
+    this.height = Math.min(Math.max(this.height, 0), 1);
+
+    this.syncPositionToCssVars();
     this.updateDragPosition();
     this.change.emit({ type: 'resize', width: this.width, height: this.height, x: this.x, y: this.y });
   }
