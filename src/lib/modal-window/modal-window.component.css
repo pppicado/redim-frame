@@ -8,6 +8,9 @@
     align-items: center;
     justify-content: center;
     pointer-events: auto !important; /* Block clicks behind modal */
+
+    --rf_window_width_local: calc(var(--rf_window_width_inherited, var(--rf_viewport_x_px, 100vw)) * var(--rf_window_width, 0.3));
+    --rf_window_height_local: calc(var(--rf_window_height_inherited, var(--rf_viewport_y_px, 100vh)) * var(--rf_window_height, 0.3));
 }
 
 .modal-backdrop-layer {
@@ -25,6 +28,8 @@
 
 .window-container {
     position: relative;
+    width: var(--rf_window_width_local);
+    height: var(--rf_window_height_local);
     user-select: none;
     pointer-events: auto;
     max-width: 100%;

@@ -1,13 +1,11 @@
 <div class="modal-backdrop-layer" (mousedown)="closeWindow()">
-  <!-- We catch mousedown on the container to prevent closing or losing focus inappropriately, 
+  <!-- We catch mousedown on the container to prevent closing or losing focus inappropriately,
        but we let events pass through the backdrop to the container. -->
-  <div class="window-container card shadow" 
-       (mousedown)="$event.stopPropagation(); onWindowClick()"
-       [style.width.vw]="width" 
-       [style.height.vh]="height">
-    
-    <lib-virtual-scrollbar class="card-body p-0 position-relative" 
-                           [scrollIcon]="scrollIcon" 
+  <div class="window-container card shadow var-to-inherited"
+       (mousedown)="$event.stopPropagation(); onWindowClick()">
+
+    <lib-virtual-scrollbar class="card-body p-0 position-relative"
+                           [scrollIcon]="scrollIcon"
                            [scrollThumbSize]="scrollThumbSize">
       <ng-template [cdkPortalOutlet]="contentPortal" (attached)="onPortalAttached($event)"></ng-template>
       <ng-content></ng-content>
