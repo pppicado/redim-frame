@@ -35,17 +35,17 @@ export class RedimFrameService {
     config: StartWindowConfig,
     overlayRef: OverlayRef
   ): Subscription[] {
-    windowInstance.width = config.width ?? 30;
-    windowInstance.height = config.height ?? 30;
-    windowInstance.x = config.x ?? 10;
-    windowInstance.y = config.y ?? 10;
+    windowInstance.width = config.width ?? 0.3;
+    windowInstance.height = config.height ?? 0.3;
+    windowInstance.x = config.x ?? 0.1;
+    windowInstance.y = config.y ?? 0.1;
     windowInstance.zIndex = this.acquireZIndex(config.zIndex);
     windowInstance.windowData = config.data;
     windowInstance.scrollIcon = config.scrollIcon ?? '';
-    windowInstance.minHeight = config.minHeight ?? 10;
-    windowInstance.minWidth = config.minWidth ?? 10;
-    windowInstance.resizeBorder = config.resizeBorder ?? 0.5;
-    windowInstance.scrollThumbSize = config.scrollThumbSize ?? 2;
+    windowInstance.minHeight = config.minHeight ?? 0.1;
+    windowInstance.minWidth = config.minWidth ?? 0.1;
+    windowInstance.resizeBorder = config.resizeBorder ?? 0.005;
+    windowInstance.scrollThumbSize = config.scrollThumbSize ?? 0.02;
 
     if (config.origin) {
       windowInstance.originElement = config.origin;
