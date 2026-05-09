@@ -135,10 +135,8 @@ export class BaseWindowDirective implements OnDestroy {
   onPortalAttached(ref: CdkPortalOutletAttachedRef) {
     if (ref instanceof ComponentRef && this.windowData) {
       Object.keys(this.windowData).forEach(key => {
-        try {
+        if (key in ref.instance) {
           ref.setInput(key, this.windowData[key]);
-        } catch {
-          // Input doesn't exist on component — skip silently
         }
       });
     }
