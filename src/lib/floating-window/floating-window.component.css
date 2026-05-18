@@ -8,12 +8,12 @@
     pointer-events: none !important;
 
     /* CSS cascade variables */
-    --rf_window_width_local: calc(var(--rf_window_width_inherited, var(--rf_viewport_x_px, 100vw)) * var(--rf_window_width, 1));
-    --rf_window_height_local: calc(var(--rf_window_height_inherited, var(--rf_viewport_y_px, 100vh)) * var(--rf_window_height, 1));
-    --rf_window_top_local: calc(var(--rf_window_top, 0) * var(--rf_window_height_local));
-    --rf_window_top_total: calc(var(--rf_window_top_inherited, 0px) + var(--rf_window_top_local));
-    --rf_window_left_local: calc(var(--rf_window_left, 0) * var(--rf_window_width_local));
-    --rf_window_left_total: calc(var(--rf_window_left_inherited, 0px) + var(--rf_window_left_local));
+    --rf_window_width_local: calc(var(--rf_window_width_inherited, 100vw) * var(--rf_window_width, 1));
+    --rf_window_height_local: calc(var(--rf_window_height_inherited, 100vh) * var(--rf_window_height, 1));
+    --rf_window_top_local: calc(var(--rf_window_height_inherited, 100vh) * var(--rf_window_top, 0));
+    --rf_window_top_total: calc(var(--rf_window_top_inherited, 0vh) + var(--rf_window_top_local));
+    --rf_window_left_local: calc(var(--rf_window_width_inherited, 100vw) * var(--rf_window_left, 0));
+    --rf_window_left_total: calc(var(--rf_window_left_inherited, 0vw) + var(--rf_window_left_local));
 }
 
 .var-to-inherited {
@@ -25,6 +25,8 @@
 
 .window-container {
     position: relative;
+    top: var(--rf_window_top_local);
+    left: var(--rf_window_left_local);
     width: var(--rf_window_width_local);
     height: var(--rf_window_height_local);
     user-select: none;
@@ -37,28 +39,8 @@
     pointer-events: auto;
 }
 
-/* content scrollbar styling */
 .card-body {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
-}
-
-.card-body::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
-
-.card-body::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.card-body::-webkit-scrollbar-thumb {
-    background-color: rgba(0, 0, 0, 0.2);
-    border-radius: 3px;
-}
-
-.card-body:hover::-webkit-scrollbar-thumb {
-    background-color: rgba(0, 0, 0, 0.4);
+    overflow: visible;
 }
 
 /* Resize handles positioned INSIDE the container */

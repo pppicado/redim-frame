@@ -1,135 +1,135 @@
-import { Directive, EventEmitter, Input, Output, OnDestroy, ComponentRef } from '@angular/core';
+import { Directive, EventEmitter, Input, Output, OnDestroy, ComponentRef, HostBinding, ElementRef, Renderer2, ChangeDetectorRef } from '@angular/core';
 import { Portal, CdkPortalOutletAttachedRef } from '@angular/cdk/portal';
-import { WindowChangeEvent } from './redim-frame.interface';
-
-function clamp01(v: number): number {
-  return Math.min(Math.max(v, 0), 1);
-}
-
-function clamp01Warn(value: number, name: string): number {
-  const clamped = Math.min(Math.max(value, 0), 1);
-  if (clamped !== value) {
-    console.warn(`[BaseWindowDirective] '${name}' value ${value} is outside valid range [0,1]. Clamping to ${clamped}.`);
-  }
-  return clamped;
-}
+import { WindowChangeEvent, UnitGroupFactory, WindowConfig, Layers, RfRect, CSS_VARS } from './redim-frame.interface';
+import { Subscription } from 'rxjs';
 
 @Directive({
   selector: '[libBaseWindow]'
 })
 export class BaseWindowDirective implements OnDestroy {
-  private _width: number = 0.3;
-  /** EN: Initial width as decimal fraction of reference width (0.0–1.0). ES: Ancho inicial como fracción decimal del ancho de referencia (0.0–1.0). */
-  @Input() get width(): number { return this._width; }
-  set width(v: number) { this._width = clamp01Warn(v, 'width'); }
 
-  private _height: number = 0.3;
-  /** EN: Initial height as decimal fraction of reference height (0.0–1.0). ES: Alto inicial como fracción decimal del alto de referencia (0.0–1.0). */
-  @Input() get height(): number { return this._height; }
-  set height(v: number) { this._height = clamp01Warn(v, 'height'); }
 
-  private _x: number = 0.1;
-  /** EN: Initial X position as decimal fraction of reference width (0.0–1.0). ES: Posición X inicial como fracción decimal del ancho de referencia (0.0–1.0). */
-  @Input() get x(): number { return this._x; }
-  set x(v: number) { this._x = clamp01Warn(v, 'x'); }
+  public setCssVar(name: string, value: string, el: HTMLElement = this.elementRef.nativeElement) { this.renderer.setStyle(el, name, value); }
 
-  private _y: number = 0.1;
-  /** EN: Initial Y position as decimal fraction of reference height (0.0–1.0). ES: Posición Y inicial como fracción decimal del alto de referencia (0.0–1.0). */
-  @Input() get y(): number { return this._y; }
-  set y(v: number) { this._y = clamp01Warn(v, 'y'); }
+  private _config: WindowConfig = new WindowConfig();
+  private _disposed: boolean = false;
 
-  @Input() zIndex: number = 1000;
-  @Input() contentPortal: Portal<any> | null = null;
-  @Input() windowData: any = null;
+  public observers: { obj: ResizeObserver | Subscription | Renderer2, dis: Function | null }[] = [];
 
-  private _resizeBorder: number = 0.005;
-  /** EN: Thickness of the resize handles as decimal fraction (0.0–1.0). ES: Grosor de los manejadores de redimensión como fracción decimal (0.0–1.0). */
-  @Input() get resizeBorder(): number { return this._resizeBorder; }
-  set resizeBorder(v: number) { this._resizeBorder = clamp01Warn(v, 'resizeBorder'); }
-
-  private _minWidth: number = 0.1;
-  /** EN: Minimum width as decimal fraction (0.0–1.0). ES: Ancho mínimo como fracción decimal (0.0–1.0). */
-  @Input() get minWidth(): number { return this._minWidth; }
-  set minWidth(v: number) { this._minWidth = clamp01Warn(v, 'minWidth'); }
-
-  private _minHeight: number = 0.1;
-  /** EN: Minimum height as decimal fraction (0.0–1.0). ES: Alto mínimo como fracción decimal (0.0–1.0). */
-  @Input() get minHeight(): number { return this._minHeight; }
-  set minHeight(v: number) { this._minHeight = clamp01Warn(v, 'minHeight'); }
-
-  /** EN: URL for the custom scrollbar thumb image. ES: URL para la imagen del thumb del scrollbar personalizado. */
-  @Input() scrollIcon: string = '';
-
-  private _scrollThumbSize: number = 0.02;
-  /** EN: Size of the scrollbar thumb as decimal fraction (0.0–1.0). ES: Tamaño del thumb del scrollbar como fracción decimal (0.0–1.0). */
-  @Input() get scrollThumbSize(): number { return this._scrollThumbSize; }
-  set scrollThumbSize(v: number) { this._scrollThumbSize = clamp01Warn(v, 'scrollThumbSize'); }
-
-  @Input() originElement: HTMLElement | null = null;
-
-  // ---------------------------------------------------------------------------
-  // Deprecated vw/vh aliases — convert from old vw/vh units (0–100 scale)
-  // to new decimal fraction (0–1 scale) by dividing by 100.
-  // Emits a console.warn once per alias.
-  // ---------------------------------------------------------------------------
-  private static warnedAliases = new Set<string>();
-
-  private static warnOnce(alias: string, newProp: string) {
-    if (!BaseWindowDirective.warnedAliases.has(alias)) {
-      console.warn(
-        `[BaseWindowDirective] '${alias}' is deprecated. Use '${newProp}' with decimal fraction (0.0–1.0) instead of vw/vh units. Value will be divided by 100 internally.`
-      );
-      BaseWindowDirective.warnedAliases.add(alias);
-    }
+  @Input() get config(): WindowConfig { return this._config; }
+  set config(v: WindowConfig) {
+    this._config = new WindowConfig(v);
+    this.layers = new Layers({ rect: new RfRect(this.config.rect), container: new RfRect(), viewport: new RfRect() });
+    this.unit = new UnitGroupFactory(this.layers);
+    this.zIndex = this.config.zIndex;
+    this.contentPortal = this.config.contentPortal;
+    this.windowData = this.config.windowData;
+    this.scrollIcon = this.config.scrollIcon;
+    this.originElement = this.config.originElement;
+    this.scrollThumbSize = this.config.scrollThumbSize;
   }
 
-  /** @deprecated Use `width` as decimal fraction (0.0–1.0). This setter converts from vw units (0–100) by dividing by 100. */
-  @Input() set widthVw(v: number) {
-    BaseWindowDirective.warnOnce('widthVw', 'width');
-    this.width = clamp01(v / 100);
-  }
-  /** @deprecated Use `height` as decimal fraction (0.0–1.0). This setter converts from vh units (0–100) by dividing by 100. */
-  @Input() set heightVh(v: number) {
-    BaseWindowDirective.warnOnce('heightVh', 'height');
-    this.height = clamp01(v / 100);
-  }
-  /** @deprecated Use `x` as decimal fraction (0.0–1.0). This setter converts from vw units (0–100) by dividing by 100. */
-  @Input() set xVw(v: number) {
-    BaseWindowDirective.warnOnce('xVw', 'x');
-    this.x = clamp01(v / 100);
-  }
-  /** @deprecated Use `y` as decimal fraction (0.0–1.0). This setter converts from vh units (0–100) by dividing by 100. */
-  @Input() set yVh(v: number) {
-    BaseWindowDirective.warnOnce('yVh', 'y');
-    this.y = clamp01(v / 100);
-  }
-  /** @deprecated Use `minWidth` as decimal fraction (0.0–1.0). This setter converts from vw units (0–100) by dividing by 100. */
-  @Input() set minWidthVw(v: number) {
-    BaseWindowDirective.warnOnce('minWidthVw', 'minWidth');
-    this.minWidth = clamp01(v / 100);
-  }
-  /** @deprecated Use `minHeight` as decimal fraction (0.0–1.0). This setter converts from vh units (0–100) by dividing by 100. */
-  @Input() set minHeightVh(v: number) {
-    BaseWindowDirective.warnOnce('minHeightVh', 'minHeight');
-    this.minHeight = clamp01(v / 100);
-  }
+  // viewport => pixels , container => viewportUnits , rect => relative decimal
+  private layers: Layers = new Layers({ rect: new RfRect(this.config.rect), container: new RfRect(), viewport: new RfRect() });
+
+
+  // Interface to interact with the dimensions of the layers in all measurements units.
+  public unit: UnitGroupFactory = new UnitGroupFactory(this.layers);
+
+  @Input() zIndex: number = this.config.zIndex;
+  @Input() contentPortal: Portal<any> | null = this.config.contentPortal;
+  @Input() windowData: any = this.config.windowData;
+  @Input() scrollIcon: string = this.config.scrollIcon;
+  @Input() originElement: HTMLElement | null = this.config.originElement;
+  @Input() scrollThumbSize: string = this.config.scrollThumbSize;
+
+  @Input() get minWidth(): number { return this.unit.percentage.rect.minWidth; }
+  set minWidth(v: number) { this.unit.percentage.rect.minWidth = v; }
+  @Input() get minHeight(): number { return this.unit.percentage.rect.minHeight; }
+  set minHeight(v: number) { this.unit.percentage.rect.minHeight = v; }
+  @Input() get maxWidth(): number { return this.unit.percentage.rect.maxWidth; }
+  set maxWidth(v: number) { this.unit.percentage.rect.maxWidth = v; }
+  @Input() get maxHeight(): number { return this.unit.percentage.rect.maxHeight; }
+  set maxHeight(v: number) { this.unit.percentage.rect.maxHeight = v; }
+  @Input() get width(): number { return this.unit.percentage.rect.width; }
+  set width(v: number) { this.unit.percentage.rect.width = v; }
+  @Input() get height(): number { return this.unit.percentage.rect.height; }
+  set height(v: number) { this.unit.percentage.rect.height = v; }
+  @Input() get left(): number { return this.unit.percentage.rect.left; }
+  set left(v: number) { this.unit.percentage.rect.x = v; }
+  @Input() get top(): number { return this.unit.percentage.rect.top; }
+  set top(v: number) { this.unit.percentage.rect.y = v; }
+  @Input() get overflow(): boolean { return this.unit.percentage.rect.overflow; }
+  set overflow(v: boolean) { this.unit.percentage.rect.overflow = v; }
 
   @Output() change = new EventEmitter<WindowChangeEvent>();
 
-  private _disposed: boolean = false;
+  @HostBinding('style.--z-index') get zIndexStyle() { return this.zIndex; }
 
-  ngOnDestroy() {
-    // Override if needed in subclasses
+  constructor(
+    public renderer: Renderer2,
+    public elementRef: ElementRef,
+    public cdr: ChangeDetectorRef,
+    config?: WindowConfig
+  ) { if (config) this.config = config; }
+
+  ngOnInit() {
+    const styles = window.getComputedStyle(this.elementRef.nativeElement);
+    if (!styles.getPropertyValue(CSS_VARS.VIEWPORT_WIDTH)) {
+      this.unit.pixels.viewport.width = window.innerWidth;
+      this.unit.pixels.viewport.height = window.innerHeight;
+      const observer = new ResizeObserver((entries) => this.onResizeObs(entries, this.unit.pixels.viewport, () => this.setCssViewport()))
+      observer.observe(document.documentElement);
+      this.observers.push({ obj: observer, dis: () => observer.disconnect() });
+      this.setCssViewport()
+    }
+    if (!styles.getPropertyValue(CSS_VARS.WINDOW_WIDTH_INHERITED)) {
+      const rect = (this.originElement) ? this.originElement.getBoundingClientRect() : document.documentElement.getBoundingClientRect();
+      this.unit.pixels.container.width = rect.width;
+      this.unit.pixels.container.height = rect.height;
+      this.unit.pixels.container.x = rect.x;
+      this.unit.pixels.container.y = rect.y;
+      const observer = new ResizeObserver((entries) => this.onResizeObs(entries, this.unit.pixels.container, () => this.setCssOrigin()));
+      observer.observe((this.originElement) ? this.originElement : document.documentElement);
+      this.observers.push({ obj: observer, dis: () => observer.disconnect() });
+      this.setCssOrigin()
+    }
+    this.cdr.detectChanges();
   }
 
-  getDimensions(): { width: number; height: number; x: number; y: number } {
-    return { width: this.width, height: this.height, x: this.x, y: this.y };
+  private onResizeObs(entries: ResizeObserverEntry[], rect: DOMRect, action: () => void) {
+    const entry = entries?.[0];
+    if (entry) {
+      rect.width = entry.contentRect.width;
+      rect.height = entry.contentRect.height;
+      rect.x = entry.contentRect.left;
+      rect.y = entry.contentRect.top;
+      action();
+    }
   }
 
-  dispose(): void {
-    if (this._disposed) return;
-    this._disposed = true;
-    this.change.emit({ type: 'close' });
+  public setCssRect() {
+    this.setCssVar(CSS_VARS.WINDOW_WIDTH, this.unit.relative.rect.width.toString());
+    this.setCssVar(CSS_VARS.WINDOW_HEIGHT, this.unit.relative.rect.height.toString());
+    this.setCssVar(CSS_VARS.WINDOW_LEFT, this.unit.relative.rect.x.toString());
+    this.setCssVar(CSS_VARS.WINDOW_TOP, this.unit.relative.rect.y.toString());
+    this.cdr.markForCheck();
+  }
+
+  private setCssOrigin() {
+    this.setCssVar(CSS_VARS.WINDOW_WIDTH_INHERITED, this.unit.viewportUnits.container.width + 'vw');
+    this.setCssVar(CSS_VARS.WINDOW_HEIGHT_INHERITED, this.unit.viewportUnits.container.height + 'vh');
+    this.setCssVar(CSS_VARS.WINDOW_LEFT_INHERITED, this.unit.viewportUnits.container.x + 'vw');
+    this.setCssVar(CSS_VARS.WINDOW_TOP_INHERITED, this.unit.viewportUnits.container.y + 'vh');
+    this.cdr.markForCheck();
+  }
+
+  private setCssViewport() {
+    this.setCssVar(CSS_VARS.VIEWPORT_WIDTH, this.unit.pixels.viewport.width + 'px');
+    this.setCssVar(CSS_VARS.VIEWPORT_HEIGHT, this.unit.pixels.viewport.height + 'px');
+    this.setCssVar(CSS_VARS.VIEWPORT_LEFT, this.unit.pixels.viewport.x + 'px');
+    this.setCssVar(CSS_VARS.VIEWPORT_TOP, this.unit.pixels.viewport.y + 'px');
+    this.cdr.markForCheck();
   }
 
   onPortalAttached(ref: CdkPortalOutletAttachedRef) {
@@ -142,11 +142,22 @@ export class BaseWindowDirective implements OnDestroy {
     }
   }
 
-  onWindowClick() {
-    this.change.emit({ type: 'focus' });
+  dispose(emit: boolean = true): void {
+    if (!this._disposed) {
+      this._disposed = true;
+      if (emit) this.change.emit({ type: 'close' });
+      this.ngOnDestroy();
+    }
   }
 
   closeWindow() {
     this.change.emit({ type: 'close' });
+    // Nota para PPPS : Evaluar si gestionar close desde fuera como evento o ejecutar aqui dispose()
   }
+  onWindowClick() { this.change.emit({ type: 'focus' }); }
+  ngOnDestroy() { while (this.observers.length) { this.observers.pop()?.dis?.(); } }
 }
+
+
+
+

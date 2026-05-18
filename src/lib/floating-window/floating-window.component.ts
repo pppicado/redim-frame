@@ -1,201 +1,112 @@
-import { Component, EventEmitter, Input, Renderer2, OnDestroy, AfterViewInit, OnInit, ElementRef, ChangeDetectorRef } from '@angular/core';
-import { CdkDragEnd, CdkDragStart, CdkDrag } from '@angular/cdk/drag-drop';
-import { Portal } from '@angular/cdk/portal';
+import { Component, HostBinding, Input, Renderer2, OnDestroy, OnInit, ChangeDetectorRef, ElementRef } from '@angular/core';
+import { CdkDragEnd, CdkDragStart } from '@angular/cdk/drag-drop';
 import { BaseWindowDirective } from '../base-window.directive';
+import { DragContext } from '../redim-frame.interface';
 
 @Component({
-  selector: 'lib-floating-window',
+  selector: 'redim-floating-window',
   templateUrl: './floating-window.component.html',
   styleUrls: ['./floating-window.component.css']
 })
-export class FloatingWindowComponent extends BaseWindowDirective implements OnInit, AfterViewInit, OnDestroy {
+export class FloatingWindowComponent extends BaseWindowDirective implements OnInit, OnDestroy {
 
-  @Input() override zIndex: number = 1000;
-
-  xyDragPositionPixels = { x: 0, y: 0 };
-
-  private setCssVar(name: string, value: string) {
-    this.renderer.setStyle(this.elementRef.nativeElement, name, value);
-  }
-
-  /** Returns the reference width/height for fraction→pixel conversions */
-  private getReferenceSize(): { width: number; height: number } {
-    if (this.originElement) {
-      return { width: this.originElement.clientWidth, height: this.originElement.clientHeight };
-    }
-    return { width: window.innerWidth, height: window.innerHeight };
-  }
-
-  /** Pushes current decimal-fraction state into CSS custom properties on :host */
-  syncPositionToCssVars() {
-    this.setCssVar('--rf_window_width', this.width.toString());
-    this.setCssVar('--rf_window_height', this.height.toString());
-    this.setCssVar('--rf_window_top', this.y.toString());
-    this.setCssVar('--rf_window_left', this.x.toString());
-    this.setCssVar('--rf_resize_handle', this.resizeBorder.toString());
-  }
-
-  updateDragPosition() {
-    const ref = this.getReferenceSize();
-    this.xyDragPositionPixels = {
-      x: this.x * ref.width,
-      y: this.y * ref.height
-    };
-  }
+  @Input() resizeBorder: string = this.config.resizeBorder;
+  @HostBinding('style.--rf_window_resize_border') get resizeBorderCssVar() { return this.resizeBorder; }
 
   private isResizing: boolean = false;
   private resizeDirection: string = '';
-  private startX: number = 0;
-  private startY: number = 0;
-  private startWidth: number = 0;
-  private startHeight: number = 0;
-  private startXWindow: number = 0;
-  private startYWindow: number = 0;
+  private unlistenMouseMove?: () => void;
+  private unlistenMouseUp?: () => void;
 
-  private mouseMoveListener: Function | null = null;
-  private mouseUpListener: Function | null = null;
-  private resizeObserver: ResizeObserver | null = null;
-
-  constructor(
-    private renderer: Renderer2,
-    private elementRef: ElementRef,
-    private cdr: ChangeDetectorRef
-  ) {
-    super();
+  get windowDrag(): { x: number; y: number } {
+    return { x: this.unit.pixels.rect.x, y: this.unit.pixels.rect.y };
   }
 
-  ngOnInit() {
-    this.syncPositionToCssVars();
-    this.updateDragPosition();
+  private resizeDrag: DragContext = new DragContext();
 
-    // Only outermost windows (no originElement) observe viewport and set viewport-origin vars
-    if (!this.originElement) {
-      this.setCssVar('--rf_viewport_x_px', window.innerWidth + 'px');
-      this.setCssVar('--rf_viewport_y_px', window.innerHeight + 'px');
-      this.resizeObserver = new ResizeObserver((entries) => this.onViewportResize(entries));
-      this.resizeObserver.observe(document.documentElement);
-    }
-  }
+  constructor(renderer: Renderer2, elementRef: ElementRef, cdr: ChangeDetectorRef) { super(renderer, elementRef, cdr) }
 
-  ngAfterViewInit() {
-  }
-
-  private onViewportResize(entries?: ResizeObserverEntry[]) {
-    const entry = entries?.[0];
-    if (!this.originElement && entry) {
-      this.setCssVar('--rf_viewport_x_px', entry.contentRect.width + 'px');
-      this.setCssVar('--rf_viewport_y_px', entry.contentRect.height + 'px');
-    }
-  }
-
-  override ngOnDestroy() {
-    this.removeResizeListeners();
-    if (this.resizeObserver) {
-      this.resizeObserver.disconnect();
-      this.resizeObserver = null;
-    }
-    super.ngOnDestroy();
-  }
-
-  onDragStart(event: CdkDragStart) {
-    this.change.emit({ type: 'focus' });
-  }
+  onDragStart(event: CdkDragStart) { this.change.emit({ type: 'focus' }); }
 
   onDragEnd(event: CdkDragEnd) {
-    const element = event.source.getRootElement();
-    const rect = element.getBoundingClientRect();
-    const ref = this.getReferenceSize();
-
-    if (this.originElement) {
-      const originRect = this.originElement.getBoundingClientRect();
-      this.x = (rect.left - originRect.left) / ref.width;
-      this.y = (rect.top - originRect.top) / ref.height;
-    } else {
-      const scrollX = window.scrollX || window.pageXOffset;
-      const scrollY = window.scrollY || window.pageYOffset;
-      this.x = (rect.left + scrollX) / ref.width;
-      this.y = (rect.top + scrollY) / ref.height;
-    }
-
-    // Clamp to [0, 1]
-    this.x = Math.min(Math.max(this.x, 0), 1);
-    this.y = Math.min(Math.max(this.y, 0), 1);
-
-    this.syncPositionToCssVars();
-    this.updateDragPosition();
-    this.change.emit({ type: 'drag', x: this.x, y: this.y });
+    this.unit.pixels.rect.x += event.distance.x;
+    this.unit.pixels.rect.y += event.distance.y;
+    this.setCssRect();
+    event.source._dragRef.reset();
+    this.change.emit({ type: 'drag' });
+    this.cdr.detectChanges();
   }
 
+  // Resizing logic
   initResize(event: MouseEvent, direction: string) {
     event.preventDefault();
     event.stopPropagation();
 
     this.isResizing = true;
     this.resizeDirection = direction;
-    this.startX = event.clientX;
-    this.startY = event.clientY;
-    this.startWidth = this.width;
-    this.startHeight = this.height;
-    this.startXWindow = this.x;
-    this.startYWindow = this.y;
+
+    this.resizeDrag.startX = event.clientX;
+    this.resizeDrag.startY = event.clientY;
+    this.resizeDrag.x = this.unit.pixels.rect.x;
+    this.resizeDrag.y = this.unit.pixels.rect.y;
+    this.resizeDrag.width = this.unit.pixels.rect.width;
+    this.resizeDrag.height = this.unit.pixels.rect.height;
+
+    if (this.unlistenMouseMove) this.unlistenMouseMove();
+    this.unlistenMouseMove = this.renderer.listen('document', 'mousemove', (e) => this.onResize(e));
+
+    if (this.unlistenMouseUp) this.unlistenMouseUp();
+    this.unlistenMouseUp = this.renderer.listen('document', 'mouseup', () => this.stopResize());
 
     this.change.emit({ type: 'focus' });
-
-    this.mouseMoveListener = this.renderer.listen('document', 'mousemove', (e) => this.onResize(e));
-    this.mouseUpListener = this.renderer.listen('document', 'mouseup', () => this.stopResize());
   }
 
   onResize(event: MouseEvent) {
     if (!this.isResizing) return;
-    const dxPx = event.clientX - this.startX;
-    const dyPx = event.clientY - this.startY;
-    const ref = this.getReferenceSize();
-    const dxFraction = dxPx / ref.width;
-    const dyFraction = dyPx / ref.height;
+
+    this.resizeDrag.dragX = event.clientX;
+    this.resizeDrag.dragY = event.clientY;
 
     for (const direction of this.resizeDirection) {
       switch (direction) {
         case 'e':
-          this.width = Math.max(this.minWidth, this.startWidth + dxFraction);
+          this.unit.pixels.rect.width = this.resizeDrag.width + this.resizeDrag.diffX;
+          this.unit.pixels.rect.x = this.resizeDrag.x;
           break;
         case 'w':
-          this.width = Math.max(this.minWidth, this.startWidth - dxFraction);
-          this.x = this.startXWindow + (this.startWidth - this.width);
-          break;
-        case 's':
-          this.height = Math.max(this.minHeight, this.startHeight + dyFraction);
+          this.unit.pixels.rect.width = this.resizeDrag.width - this.resizeDrag.diffX;
+          this.unit.pixels.rect.x = this.resizeDrag.x + this.resizeDrag.diffX;
           break;
         case 'n':
-          this.height = Math.max(this.minHeight, this.startHeight - dyFraction);
-          this.y = this.startYWindow + (this.startHeight - this.height);
+          this.unit.pixels.rect.height = this.resizeDrag.height - this.resizeDrag.diffY;
+          this.unit.pixels.rect.y = this.resizeDrag.y + this.resizeDrag.diffY;
+          break;
+        case 's':
+          this.unit.pixels.rect.height = this.resizeDrag.height + this.resizeDrag.diffY;
+          this.unit.pixels.rect.y = this.resizeDrag.y;
           break;
       }
     }
+    this.setCssRect();
 
-    // Clamp all to [0, 1]
-    this.x = Math.min(Math.max(this.x, 0), 1);
-    this.y = Math.min(Math.max(this.y, 0), 1);
-    this.width = Math.min(Math.max(this.width, 0), 1);
-    this.height = Math.min(Math.max(this.height, 0), 1);
+    this.change.emit({ type: 'resize' });
 
-    this.syncPositionToCssVars();
-    this.updateDragPosition();
-    this.change.emit({ type: 'resize', width: this.width, height: this.height, x: this.x, y: this.y });
   }
 
   stopResize() {
     this.isResizing = false;
     this.removeResizeListeners();
+    this.cdr.detectChanges();
   }
 
   private removeResizeListeners() {
-    if (this.mouseMoveListener) {
-      this.mouseMoveListener();
-      this.mouseMoveListener = null;
+    if (this.unlistenMouseMove) {
+      this.unlistenMouseMove();
+      this.unlistenMouseMove = undefined;
     }
-    if (this.mouseUpListener) {
-      this.mouseUpListener();
-      this.mouseUpListener = null;
+    if (this.unlistenMouseUp) {
+      this.unlistenMouseUp();
+      this.unlistenMouseUp = undefined;
     }
   }
 }
