@@ -1,4 +1,4 @@
-import { Portal } from "@angular/cdk/portal";
+import type { Portal } from "@angular/cdk/portal";
 
 export const CSS_VARS = {
   VIEWPORT_WIDTH: '--rf_viewport_px_width',
@@ -155,7 +155,7 @@ export class UnitGroupFactory extends UnitGroup {
         get minWidth() { return src.minWidth * H(); }, set minWidth(v) { src.minWidth = v / H(); },
         get minHeight() { return src.minHeight * V(); }, set minHeight(v) { src.minHeight = v / V(); },
         get ratioWH() { return (src.width * H()) / (src.height * V()); }, set ratioWH(v: number) { src.height = src.width / v; },
-        toJSON: function () { return { x: src.x, y: src.y, width: src.width, height: src.height, minWidth: src.minWidth, minHeight: src.minHeight, maxWidth: src.maxWidth, maxHeight: src.maxHeight, ratioWH: src.ratioWH }; }
+        toJSON: () => ({ x: src.x, y: src.y, width: src.width, height: src.height, minWidth: src.minWidth, minHeight: src.minHeight, maxWidth: src.maxWidth, maxHeight: src.maxHeight, ratioWH: src.ratioWH })
       })
       return rect;
     };

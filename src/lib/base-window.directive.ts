@@ -1,7 +1,7 @@
-import { Directive, EventEmitter, Input, Output, OnDestroy, ComponentRef, HostBinding, ElementRef, Renderer2, ChangeDetectorRef } from '@angular/core';
-import { Portal, CdkPortalOutletAttachedRef } from '@angular/cdk/portal';
-import { WindowChangeEvent, UnitGroupFactory, WindowConfig, Layers, RfRect, CSS_VARS } from './redim-frame.interface';
-import { Subscription } from 'rxjs';
+import { Directive, EventEmitter, Input, Output, type OnDestroy, ComponentRef, HostBinding, ElementRef, Renderer2, ChangeDetectorRef } from '@angular/core';
+import type { Portal, CdkPortalOutletAttachedRef } from '@angular/cdk/portal';
+import { type WindowChangeEvent, UnitGroupFactory, WindowConfig, Layers, RfRect, CSS_VARS } from './redim-frame.interface';
+import type { Subscription } from 'rxjs';
 
 @Directive({
   selector: '[libBaseWindow]'
