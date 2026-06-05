@@ -29,7 +29,7 @@ describe('FloatingWindowComponent', () => {
     });
 
     it('defaults resizeBorder to 6', () => {
-        expect(component.resizeBorder).toBe(6);
+        expect(component.resizeBorder).toEqual(6);
     });
 
     it('emits focus on drag start', () => {
