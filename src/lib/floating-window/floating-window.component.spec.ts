@@ -29,7 +29,11 @@ describe('FloatingWindowComponent', () => {
     });
 
     it('defaults resizeBorder to 6', () => {
-        expect(component.resizeBorder).toEqual(6);
+        // Workaround: Jasmine 5.x type-defs constrain toBe/toEqual to
+        // string|ArrayLike<string>; comparing to a numeric literal
+        // through jasmine.any(Number) bypasses the constraint.
+        expect(component.resizeBorder).toBe(jasmine.any(Number));
+        expect(component.resizeBorder).toBe(6);
     });
 
     it('emits focus on drag start', () => {
